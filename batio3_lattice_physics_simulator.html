@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鈦酸鋇晶格微觀物理模擬器</title>
+    <!-- 引入 Tailwind CSS 提供現代美觀介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 flex flex-col items-center">
+
+    <div class="max-w-6xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 p-6">
+        <!-- 標題 -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-sky-400">鈦酸鋇 ($\text{BaTiO}_3$) 晶格微觀物理模擬器</h1>
+            <p class="text-slate-400 mt-2 text-sm md:text-base">
+                探索「逆壓電效應」與「電致伸縮」在原子尺度上的形變機制差異
+            </p>
+        </div>
+
+        <!-- 說明卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-850 p-4 rounded-xl border border-slate-700">
+            <div class="border-l-4 border-emerald-500 pl-3">
+                <h3 class="font-bold text-emerald-400">1. 逆壓電效應 (Inverse Piezoelectric)</h3>
+                <p class="text-xs text-slate-300 mt-1">
+                    特性：<span class="text-emerald-300">線性關係 ($\Delta L \propto E$)</span>。只發生在無對稱中心的鐵電相（如 tetragonal）。當電場方向與自發極化一致時晶格拉長，相反時晶格壓縮。
+                </p>
+            </div>
+            <div class="border-l-4 border-amber-500 pl-3">
+                <h3 class="font-bold text-amber-400">2. 電致伸縮效應 (Electrostriction)</h3>
+                <p class="text-xs text-slate-300 mt-1">
+                    特性：<span class="text-amber-300">二次方關係 ($\Delta L \propto E^2$)</span>。存在於所有介電質中。不論電場正負，其引發的晶格形變方向永遠相同（皆為拉長）。
+                </p>
+            </div>
+        </div>
+
+        <!-- 主操作與展示區 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 左側：控制面板 (4 cols) -->
+            <div class="lg:col-span-4 bg-slate-850 p-4 rounded-xl border border-slate-700 flex flex-col gap-6">
+                <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-sky-300">控制面板</h2>
+                
+                <!-- 電晶體相切換 -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-semibold">晶體結構相 (Crystal Phase)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-tetragonal" class="py-2 px-3 bg-sky-600 hover:bg-sky-500 text-xs font-bold rounded-lg transition-colors border border-sky-400">
+                            四方晶系 (鐵電相)<br><span class="text-[10px] font-normal">常溫 (具自發極化)</span>
+                        </button>
+                        <button id="btn-cubic" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg transition-colors border border-transparent">
+                            立方晶系 (順電相)<br><span class="text-[10px] font-normal">&gt;120°C (無壓電效應)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 電場控制 -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-semibold">施加外部電場 ($E$)</span>
+                        <span id="e-field-val" class="font-bold text-sky-400">0.0 kV/mm</span>
+                    </div>
+                    <input type="range" id="e-field-slider" min="-10" max="10" step="0.1" value="0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500">
+                    <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>-E (負電場)</span>
+                        <span>0 (無電場)</span>
+                        <span>+E (正電場)</span>
+                    </div>
+                </div>
+
+                <!-- AC 模式切換 -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-semibold flex items-center gap-2">
+                        <input type="checkbox" id="ac-toggle" class="w-4 h-4 rounded text-sky-600 bg-slate-700 border-slate-600">
+                        模擬交流訊號 (AC Mode)
+                    </label>
+                    <div id="ac-speed-container" class="opacity-40 transition-opacity flex flex-col gap-2">
+                        <div class="flex justify-between text-xs">
+                            <span>AC 掃描速度:</span>
+                            <span id="ac-speed-val">1.0 Hz</span>
+                        </div>
+                        <input type="range" id="ac-speed-slider" min="0.2" max="3" step="0.1" value="1" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" disabled>
+                    </div>
+                </div>
+
+                <!-- 原子圖例 -->
+                <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs flex flex-col gap-2">
+                    <div class="font-semibold text-slate-400 mb-1">原子圖例 (2D 投影面)：</div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block"></span>
+                        <span>鋇離子 ($\text{Ba}^{2+}$) - 頂點支撐</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-500 inline-block"></span>
+                        <span>氧離子 ($\text{O}^{2-}$) - 面心籠狀物</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full bg-sky-400 inline-block"></span>
+                        <span>鈦離子 ($\text{Ti}^{4+}$) - 中心活動離子</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中間：晶格 2D 模擬畫布 (5 cols) -->
+            <div class="lg:col-span-5 bg-slate-950 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-between relative min-h-[350px]">
+                <div class="absolute top-3 left-3 bg-slate-900/80 px-2 py-1 rounded text-[11px] font-bold border border-slate-700 text-slate-400">
+                    微觀原子形變畫布 (高度誇張化以利觀察)
+                </div>
+                
+                <canvas id="lattice-canvas" class="w-full max-w-[360px] h-[360px] my-auto"></canvas>
+                
+                <div id="lattice-desc" class="w-full bg-slate-900/90 p-3 rounded-lg text-xs text-center border border-slate-800 text-slate-300">
+                    載入中...
+                </div>
+            </div>
+
+            <!-- 右側：波形與數學曲線分析 (3 cols) -->
+            <div class="lg:col-span-3 bg-slate-850 p-4 rounded-xl border border-slate-700 flex flex-col gap-4">
+                <h2 class="text-sm font-bold border-b border-slate-700 pb-2 text-sky-300">形變曲線分析</h2>
+                
+                <!-- 逆壓電效應圖 -->
+                <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col">
+                    <span class="text-[11px] font-semibold text-emerald-400 text-center">逆壓電形變 ($\Delta L_{piezo} \propto E$)</span>
+                    <canvas id="plot-piezo" class="w-full h-[90px] mt-1"></canvas>
+                </div>
+
+                <!-- 電致伸縮效應圖 -->
+                <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col">
+                    <span class="text-[11px] font-semibold text-amber-400 text-center">電致伸縮形變 ($\Delta L_{electro} \propto E^2$)</span>
+                    <canvas id="plot-electro" class="w-full h-[90px] mt-1"></canvas>
+                </div>
+
+                <!-- 總合成震動曲線 -->
+                <div class="bg-slate-900 p-2 rounded-lg border border-slate-800 flex flex-col">
+                    <span class="text-[11px] font-semibold text-sky-400 text-center">總合成形變 (壓電 + 電致伸縮)</span>
+                    <canvas id="plot-total" class="w-full h-[90px] mt-1"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素
+        const btnTetragonal = document.getElementById('btn-tetragonal');
+        const btnCubic = document.getElementById('btn-cubic');
+        const eFieldSlider = document.getElementById('e-field-slider');
+        const eFieldVal = document.getElementById('e-field-val');
+        const acToggle = document.getElementById('ac-toggle');
+        const acSpeedContainer = document.getElementById('ac-speed-container');
+        const acSpeedSlider = document.getElementById('ac-speed-slider');
+        const acSpeedVal = document.getElementById('ac-speed-val');
+        const latticeCanvas = document.getElementById('lattice-canvas');
+        const latticeDesc = document.getElementById('lattice-desc');
+        
+        // 圖表 Canvas
+        const canvasPiezo = document.getElementById('plot-piezo');
+        const canvasElectro = document.getElementById('plot-electro');
+        const canvasTotal = document.getElementById('plot-total');
+
+        // 模擬狀態
+        let state = {
+            phase: 'tetragonal', // 'tetragonal' | 'cubic'
+            eField: 0,          // -10 到 +10
+            isAC: false,
+            acHz: 1.0,
+            time: 0
+        };
+
+        // 按鈕切換狀態
+        btnTetragonal.addEventListener('click', () => {
+            state.phase = 'tetragonal';
+            btnTetragonal.className = "py-2 px-3 bg-sky-600 hover:bg-sky-500 text-xs font-bold rounded-lg transition-colors border border-sky-400";
+            btnCubic.className = "py-2 px-3 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg transition-colors border border-transparent";
+        });
+
+        btnCubic.addEventListener('click', () => {
+            state.phase = 'cubic';
+            btnCubic.className = "py-2 px-3 bg-sky-600 hover:bg-sky-500 text-xs font-bold rounded-lg transition-colors border border-sky-400";
+            btnTetragonal.className = "py-2 px-3 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg transition-colors border border-transparent";
+        });
+
+        // 滑桿監聽
+        eFieldSlider.addEventListener('input', (e) => {
+            state.eField = parseFloat(e.target.value);
+            eFieldVal.innerText = (state.eField).toFixed(1) + ' kV/mm';
+        });
+
+        acToggle.addEventListener('change', (e) => {
+            state.isAC = e.target.checked;
+            eFieldSlider.disabled = state.isAC;
+            acSpeedSlider.disabled = !state.isAC;
+            if (state.isAC) {
+                acSpeedContainer.classList.remove('opacity-40');
+                eFieldSlider.classList.add('opacity-40');
+            } else {
+                acSpeedContainer.classList.add('opacity-40');
+                eFieldSlider.classList.remove('opacity-40');
+                // 還原滑桿值
+                state.eField = parseFloat(eFieldSlider.value);
+                eFieldVal.innerText = (state.eField).toFixed(1) + ' kV/mm';
+            }
+        });
+
+        acSpeedSlider.addEventListener('input', (e) => {
+            state.acHz = parseFloat(e.target.value);
+            acSpeedVal.innerText = state.acHz.toFixed(1) + ' Hz';
+        });
+
+        // 初始化畫布解析度
+        function initCanvas(canvas, w, h) {
+            canvas.width = w * window.devicePixelRatio;
+            canvas.height = h * window.devicePixelRatio;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            return ctx;
+        }
+
+        const ctxLattice = initCanvas(latticeCanvas, 360, 360);
+        const ctxPiezo = initCanvas(canvasPiezo, 240, 90);
+        const ctxElectro = initCanvas(canvasElectro, 240, 90);
+        const ctxTotal = initCanvas(canvasTotal, 240, 90);
+
+        // 主迴圈
+        function animate() {
+            if (state.isAC) {
+                state.time += 0.016 * state.acHz * Math.PI * 2; // 隨時間前進的弧度
+                state.eField = Math.sin(state.time) * 10;
+                eFieldSlider.value = state.eField;
+                eFieldVal.innerText = (state.eField).toFixed(1) + ' kV/mm';
+            }
+
+            drawLattice();
+            drawPlots();
+            updateTextDescription();
+
+            requestAnimationFrame(animate);
+        }
+
+        // 繪製晶格圖
+        function drawLattice() {
+            const ctx = ctxLattice;
+            ctx.clearRect(0, 0, 360, 360);
+
+            // 基礎參數
+            const centerX = 180;
+            const centerY = 180;
+            const baseSize = 140; // 基礎晶格半邊長
+
+            // 自發性偏移 (鐵電相 tetragonal 的鈦離子常規向上偏移 8px)
+            const spontaneousShiftY = (state.phase === 'tetragonal') ? -12 : 0;
+
+            // 形變係數 (高度誇張化便於展示)
+            // 逆壓電效應形變：線性，與電場成正比。只有 tetragonal 相有
+            const d33_coeff = (state.phase === 'tetragonal') ? 1.8 : 0; 
+            const piezoStrainY = state.eField * d33_coeff;
+
+            // 電致伸縮效應形變：二次方，與電場平方成正比。任何相都有，且永遠是拉長(常數取正數)
+            const electro_coeff = 0.25; 
+            const electroStrainY = (state.eField * state.eField) * electro_coeff;
+
+            // 總垂直半寬度 (原始寬度 + 壓電形變 + 電致伸縮形變)
+            const currentHalfHeight = baseSize + (piezoStrainY) + (electroStrainY);
+            const currentHalfWidth = baseSize - (piezoStrainY * 0.3) - (electroStrainY * 0.3); // 橫向收縮(泊松比效應)
+
+            // 1. 繪製電場指示箭頭 (背景)
+            if (Math.abs(state.eField) > 0.5) {
+                ctx.save();
+                ctx.strokeStyle = state.eField > 0 ? 'rgba(56, 189, 248, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                ctx.lineWidth = 15;
+                ctx.lineCap = 'round';
+                
+                // 畫三個箭頭
+                const arrowDir = state.eField > 0 ? -1 : 1; // 物理上電場從正極到負極，我們用方向直觀表示
+                for(let offset of [-100, 0, 100]) {
+                    ctx.beginPath();
+                    ctx.moveTo(centerX + offset, centerY + 80 * arrowDir);
+                    ctx.lineTo(centerX + offset, centerY - 80 * arrowDir);
+                    ctx.stroke();
+                    
+                    // 箭頭蓋
+                    ctx.beginPath();
+                    ctx.moveTo(centerX + offset - 15, centerY - 60 * arrowDir);
+                    ctx.lineTo(centerX + offset, centerY - 80 * arrowDir);
+                    ctx.lineTo(centerX + offset + 15, centerY - 60 * arrowDir);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // 電場文字標誌
+                ctx.fillStyle = state.eField > 0 ? '#38bdf8' : '#f87171';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(state.eField > 0 ? "外部電場方向 ↑" : "外部電場方向 ↓", 20, 45);
+            }
+
+            // 2. 繪製晶格邊界 (Ba2+ 的四方形框架)
+            const topY = centerY - currentHalfHeight;
+            const bottomY = centerY + currentHalfHeight;
+            const leftX = centerX - currentHalfWidth;
+            const rightX = centerX + currentHalfWidth;
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(leftX, topY, rightX - leftX, bottomY - topY);
+            ctx.setLineDash([]);
+
+            // 3. 繪製氧離子形成的八面體籠狀結構連結線 (2D 菱形)
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, topY);         // 上面氧
+            ctx.lineTo(rightX, centerY);       // 右邊氧
+            ctx.lineTo(centerX, bottomY);      // 下面氧
+            ctx.lineTo(leftX, centerY);        // 左邊氧
+            ctx.closePath();
+            ctx.stroke();
+
+            // 4. 繪製鋇離子 Ba2+ (綠色，四個角落)
+            const baIons = [
+                {x: leftX, y: topY}, {x: rightX, y: topY},
+                {x: leftX, y: bottomY}, {x: rightX, y: bottomY}
+            ];
+            baIons.forEach(ion => {
+                ctx.beginPath();
+                ctx.arc(ion.x, ion.y, 16, 0, Math.PI * 2);
+                ctx.fillStyle = '#10b981';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Ba', ion.x, ion.y);
+            });
+
+            // 5. 繪製氧離子 O2- (紅色，各邊心)
+            const oIons = [
+                {x: centerX, y: topY}, {x: centerX, y: bottomY},
+                {x: leftX, y: centerY}, {x: rightX, y: centerY}
+            ];
+            oIons.forEach(ion => {
+                ctx.beginPath();
+                ctx.arc(ion.x, ion.y, 12, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('O', ion.x, ion.y);
+            });
+
+            // 6. 繪製鈦離子 Ti4+ 的受力位移 (藍色，中心位置會移動)
+            // 鈦離子實際受到電場直接作用產生的位移 (正電場往上吸，負電場往下壓)
+            const titaniumShiftY = -state.eField * 3.5; 
+            const tiX = centerX;
+            const tiY = centerY + spontaneousShiftY + titaniumShiftY;
+
+            // 繪製中心指引線
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(tiX, tiY);
+            ctx.stroke();
+
+            // 鈦離子球體
+            ctx.beginPath();
+            ctx.arc(tiX, tiY, 14, 0, Math.PI * 2);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Ti', tiX, tiY);
+        }
+
+        // 繪製右側分析曲線圖
+        let plotHistory = [];
+        const maxHistory = 100;
+
+        function drawPlots() {
+            // 記錄當前數值
+            const V = state.eField;
+            const isTetragonal = (state.phase === 'tetragonal');
+            
+            const piezoStrain = isTetragonal ? (V * 4) : 0;
+            const electroStrain = (V * V) * 0.5;
+            const totalStrain = piezoStrain + electroStrain;
+
+            plotHistory.push({ piezo: piezoStrain, electro: electroStrain, total: totalStrain, eField: V });
+            if (plotHistory.length > maxHistory) plotHistory.shift();
+
+            drawSinglePlot(ctxPiezo, 'piezo', '#10b981', -40, 40, "線性關係 (ΔL ∝ E)");
+            drawSinglePlot(ctxElectro, 'electro', '#f59e0b', -10, 60, "二次方關係 (ΔL ∝ E²)");
+            drawSinglePlot(ctxTotal, 'total', '#38bdf8', -40, 90, "真實晶格合位移量");
+        }
+
+        function drawSinglePlot(ctx, key, color, minVal, maxVal, formulaText) {
+            ctx.clearRect(0, 0, 240, 90);
+
+            // 繪製背景網格與中心線 (y = 0)
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            // 找出 0 刻度的 Y 座標
+            const zeroY = 90 - ((0 - minVal) / (maxVal - minVal)) * 90;
+            ctx.moveTo(0, zeroY);
+            ctx.lineTo(240, zeroY);
+            ctx.stroke();
+
+            // 繪製數值曲線
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const step = 240 / maxHistory;
+            for(let i = 0; i < plotHistory.length; i++) {
+                const val = plotHistory[i][key];
+                // 歸一化到 0 ~ 90 px
+                const y = 90 - ((val - minVal) / (maxVal - minVal)) * 90;
+                const x = i * step;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 繪製最右側最新動態指示點
+            if (plotHistory.length > 0) {
+                const latestVal = plotHistory[plotHistory.length - 1][key];
+                const latestY = 90 - ((latestVal - minVal) / (maxVal - minVal)) * 90;
+                ctx.beginPath();
+                ctx.arc(240, latestY, 4, 0, Math.PI*2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+
+            // 繪製說明文字
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9px sans-serif';
+            ctx.fillText(formulaText, 8, 15);
+        }
+
+        // 即時微觀物理說明文字更新
+        function updateTextDescription() {
+            const V = state.eField;
+            const phaseText = state.phase === 'tetragonal' ? "【四方晶系 (常溫)】" : "【立方晶系 (&gt;120°C)】";
+            
+            let html = `<strong class="text-sky-400">${phaseText}</strong><br>`;
+            
+            if (state.phase === 'cubic') {
+                html += `此相下晶格具備完美的對稱中心，因此<strong>無逆壓電效應</strong>。但隨著外部電場增強，仍有微幅<strong>電致伸縮效應</strong>使晶格微幅拉長。`;
+            } else {
+                if (Math.abs(V) < 0.5) {
+                    html += `目前無外部電場。鈦離子 (${state.phase === 'tetragonal' ? '自發性偏向上方' : '在正中心'})。此時晶格無外力形變。`;
+                } else if (V > 0) {
+                    html += `<strong>施加正電場：</strong>鈦離子被拉得<strong>更偏離中心</strong>，逆壓電效應使晶格<strong>拉長</strong>。同時，電致伸縮效應也對晶格進行<strong>拉長</strong>。兩者效應相加，晶格顯著伸長！`;
+                } else {
+                    html += `<strong>施加負電場：</strong>電場力量將鈦離子<strong>往中心回推</strong>。逆壓電效應使晶格<strong>壓縮</strong>；但電致伸縮效應不認極性，依然試圖<strong>拉長</strong>晶格。兩者力量互相抵消，形變量變小。`;
+                }
+            }
+            latticeDesc.innerHTML = html;
+        }
+
+        // 啟動動畫
+        animate();
+    </script>
+</body>
+</html>
